@@ -12,22 +12,38 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
+        background-color: #e9ecef;
       }
 
       .chat-container {
         flex: 1;
         overflow-y: auto;
         padding: 10px;
-        background-color: #f4f4f9;
+        background-color: #f8f9fa;
         border-bottom: 2px solid #ccc;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
       .chat-box {
-        border: 1px solid #ccc;
-        border-radius: 8px;
+        max-width: 60%;
         padding: 10px;
         margin-bottom: 10px;
-        background-color: #fff;
+        border-radius: 20px;
+        position: relative;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .chat-box.right {
+        margin-left: auto;
+        background-color: #007bff;
+        color: white;
+        text-align: right;
+      }
+
+      .chat-box.left {
+        margin-right: auto;
+        background-color: #ffffff;
+        color: black;
       }
 
       .chat-box p {
@@ -43,11 +59,43 @@
         color: gray;
       }
 
+      .chat-box .edit-button,
+      .chat-box .delete-button {
+        position: absolute;
+        top: 10px;
+        font-size: 0.8em;
+        padding: 5px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      .chat-box.right .edit-button {
+        right: 60px;
+        background-color: #ffc107;
+        color: white;
+      }
+
+      .chat-box.right .edit-button:hover {
+        background-color: #e0a800;
+      }
+
+      .chat-box.right .delete-button {
+        right: 10px;
+        background-color: #dc3545;
+        color: white;
+      }
+
+      .chat-box.right .delete-button:hover {
+        background-color: #c82333;
+      }
+
       .input-container {
         display: flex;
         gap: 10px;
         padding: 10px;
         background-color: #eaeaea;
+        border-top: 2px solid #ccc;
       }
 
       .input-container input[type="text"] {
@@ -71,6 +119,15 @@
       .input-container button:hover {
         background-color: #0056b3;
       }
+
+      .clear-button {
+        background-color: #dc3545;
+        margin-left: 10px;
+      }
+
+      .clear-button:hover {
+        background-color: #c82333;
+      }
     </style>
   </head>
   <body>
@@ -81,10 +138,12 @@
       <input type="text" id="message" placeholder="Enter your message" />
       <button onclick="sendMessage()">Send</button>
       <button onclick="downloadLog()">Download Log</button>
+      <button class="clear-button" onclick="clearChat()">Clear Chat</button>
     </div>
 
     <script>
       let chatLog = "";
+      let currentUser = "";
 
       // Load chat log from local storage
       window.onload = function () {
@@ -100,19 +159,44 @@
             .join("");
 
           parsedChatLog.forEach((log) => {
-            const chatBox = document.createElement("div");
-            chatBox.className = "chat-box";
-            chatBox.innerHTML = `
-            <p class="username">${log.username}</p>
-            <p>${log.message}</p>
-            <p class="timestamp">${log.timestamp}</p>
-          `;
-            chatContainer.appendChild(chatBox);
+            appendChatBox(log, log.username === currentUser);
           });
 
           chatContainer.scrollTop = chatContainer.scrollHeight;
         }
       };
+
+      function appendChatBox(log, isCurrentUser) {
+        const chatContainer = document.getElementById("chatContainer");
+        const chatBox = document.createElement("div");
+        chatBox.className = `chat-box ${isCurrentUser ? "right" : "left"}`;
+        chatBox.innerHTML = `
+        <p class="username">${log.username}</p>
+        <p class="message">${log.message}</p>
+        <p class="timestamp">${log.timestamp}</p>
+      `;
+
+        if (isCurrentUser) {
+          const editButton = document.createElement("button");
+          editButton.className = "edit-button";
+          editButton.innerText = "Edit";
+          editButton.onclick = function () {
+            editMessage(chatBox, log);
+          };
+
+          const deleteButton = document.createElement("button");
+          deleteButton.className = "delete-button";
+          deleteButton.innerText = "Delete";
+          deleteButton.onclick = function () {
+            deleteMessage(chatBox, log);
+          };
+
+          chatBox.appendChild(editButton);
+          chatBox.appendChild(deleteButton);
+        }
+
+        chatContainer.appendChild(chatBox);
+      }
 
       function sendMessage() {
         const username = document.getElementById("username").value.trim();
@@ -123,23 +207,18 @@
           return;
         }
 
+        if (currentUser !== username) {
+          currentUser = username;
+          document
+            .querySelectorAll(".edit-button, .delete-button")
+            .forEach((btn) => btn.remove());
+        }
+
         const timestamp = new Date().toLocaleString();
-        const chatContainer = document.getElementById("chatContainer");
-
-        // Create a new chat box
-        const chatBox = document.createElement("div");
-        chatBox.className = "chat-box";
-        chatBox.innerHTML = `
-        <p class="username">${username}</p>
-        <p>${message}</p>
-        <p class="timestamp">${timestamp}</p>
-      `;
-
-        chatContainer.appendChild(chatBox);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        const newLogEntry = { timestamp, username, message };
+        appendChatBox(newLogEntry, true);
 
         // Append to log
-        const newLogEntry = { timestamp, username, message };
         const storedChatLog = JSON.parse(localStorage.getItem("chatLog")) || [];
         storedChatLog.push(newLogEntry);
         localStorage.setItem("chatLog", JSON.stringify(storedChatLog));
@@ -151,6 +230,57 @@
 
         // Clear message input
         document.getElementById("message").value = "";
+      }
+
+      function editMessage(chatBox, log) {
+        const newMessage = prompt("Edit your message:", log.message);
+        if (newMessage) {
+          log.message = newMessage;
+          chatBox.querySelector(".message").innerText = newMessage;
+
+          const storedChatLog = JSON.parse(localStorage.getItem("chatLog"));
+          const logIndex = storedChatLog.findIndex(
+            (entry) =>
+              entry.timestamp === log.timestamp &&
+              entry.username === log.username
+          );
+          if (logIndex !== -1) {
+            storedChatLog[logIndex].message = newMessage;
+            localStorage.setItem("chatLog", JSON.stringify(storedChatLog));
+          }
+
+          saveChatLog();
+        }
+      }
+
+      function deleteMessage(chatBox, log) {
+        if (confirm("Are you sure you want to delete this message?")) {
+          chatBox.remove();
+
+          const storedChatLog = JSON.parse(localStorage.getItem("chatLog"));
+          const updatedChatLog = storedChatLog.filter(
+            (entry) =>
+              entry.timestamp !== log.timestamp ||
+              entry.username !== log.username
+          );
+          localStorage.setItem("chatLog", JSON.stringify(updatedChatLog));
+
+          chatLog = updatedChatLog
+            .map(
+              (log) => `${log.timestamp} - ${log.username}: ${log.message}\n`
+            )
+            .join("");
+          saveChatLog();
+        }
+      }
+
+      function clearChat() {
+        if (confirm("Are you sure you want to clear all chats?")) {
+          document.getElementById("chatContainer").innerHTML = "";
+          localStorage.removeItem("chatLog");
+          chatLog = "";
+          saveChatLog();
+        }
       }
 
       function saveChatLog() {
