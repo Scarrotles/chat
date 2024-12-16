@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Log</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .chat-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 10px;
+        background-color: #f4f4f9;
+        border-bottom: 2px solid #ccc;
+      }
+
+      .chat-box {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #fff;
+      }
+
+      .chat-box p {
+        margin: 5px 0;
+      }
+
+      .chat-box .username {
+        font-weight: bold;
+      }
+
+      .chat-box .timestamp {
+        font-size: 0.8em;
+        color: gray;
+      }
+
+      .input-container {
+        display: flex;
+        gap: 10px;
+        padding: 10px;
+        background-color: #eaeaea;
+      }
+
+      .input-container input[type="text"] {
+        flex: 1;
+        padding: 10px;
+        font-size: 1em;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+      }
+
+      .input-container button {
+        padding: 10px;
+        font-size: 1em;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      .input-container button:hover {
+        background-color: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container" id="chatContainer"></div>
+
+    <div class="input-container">
+      <input type="text" id="username" placeholder="Enter your username" />
+      <input type="text" id="message" placeholder="Enter your message" />
+      <button onclick="sendMessage()">Send</button>
+      <button onclick="downloadLog()">Download Log</button>
+    </div>
+
+    <script>
+      let chatLog = "";
+
+      // Load chat log from local storage
+      window.onload = function () {
+        const storedChatLog = localStorage.getItem("chatLog");
+        const chatContainer = document.getElementById("chatContainer");
+
+        if (storedChatLog) {
+          const parsedChatLog = JSON.parse(storedChatLog);
+          chatLog = parsedChatLog
+            .map(
+              (log) => `${log.timestamp} - ${log.username}: ${log.message}\n`
+            )
+            .join("");
+
+          parsedChatLog.forEach((log) => {
+            const chatBox = document.createElement("div");
+            chatBox.className = "chat-box";
+            chatBox.innerHTML = `
+            <p class="username">${log.username}</p>
+            <p>${log.message}</p>
+            <p class="timestamp">${log.timestamp}</p>
+          `;
+            chatContainer.appendChild(chatBox);
+          });
+
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+      };
+
+      function sendMessage() {
+        const username = document.getElementById("username").value.trim();
+        const message = document.getElementById("message").value.trim();
+
+        if (!username || !message) {
+          alert("Both username and message are required!");
+          return;
+        }
+
+        const timestamp = new Date().toLocaleString();
+        const chatContainer = document.getElementById("chatContainer");
+
+        // Create a new chat box
+        const chatBox = document.createElement("div");
+        chatBox.className = "chat-box";
+        chatBox.innerHTML = `
+        <p class="username">${username}</p>
+        <p>${message}</p>
+        <p class="timestamp">${timestamp}</p>
+      `;
+
+        chatContainer.appendChild(chatBox);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        // Append to log
+        const newLogEntry = { timestamp, username, message };
+        const storedChatLog = JSON.parse(localStorage.getItem("chatLog")) || [];
+        storedChatLog.push(newLogEntry);
+        localStorage.setItem("chatLog", JSON.stringify(storedChatLog));
+
+        chatLog += `${timestamp} - ${username}: ${message}\n`;
+
+        // Save chat to log file
+        saveChatLog();
+
+        // Clear message input
+        document.getElementById("message").value = "";
+      }
+
+      function saveChatLog() {
+        const blob = new Blob([chatLog], { type: "text/plain" });
+        const file = new File([blob], "chat_log.txt", { type: "text/plain" });
+        window.chatFile = file;
+      }
+
+      function downloadLog() {
+        if (!window.chatFile) {
+          alert("No chat log available to download!");
+          return;
+        }
+
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(window.chatFile);
+        link.download = "chat_log.txt";
+        link.click();
+      }
+    </script>
+  </body>
+</html>
